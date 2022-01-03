@@ -11,6 +11,7 @@ from tqdm import tqdm
 #%%
 # !pip install chromedriver_autoinstaller
 import selenium
+from bs4 import BeautifulSoup
 import chromedriver_autoinstaller
 from selenium import webdriver
 from selenium.webdriver import ActionChains
@@ -22,6 +23,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, ElementNotInteractableException
+
+from html_table_parser import parser_functions as parser
+
 
 #%%
 url = 'https://www.csi.go.kr/acd/acdCaseList.do'
@@ -56,71 +60,26 @@ for j in range(1, page_length):
         driver.execute_script(accid_url)
         time.sleep(1)
         
-        # ------------------------------------------------------------------------------------------------------------- #
-        tab_path = '/html/body/div[3]/div[3]/div/div/div[3]/section/form[2]/div[1]/table'
-        tab_tmp = driver.find_element_by_xpath(tab_path)
-        tab = tab_tmp.find_elements_by_tag_name('tr')
+        # -------------------------------- 사고사례 -------------------------------- #
+        tab = driver.find_elements_by_class_name('table.table-bordered')
+        case_tab = tab[0]
         
-        dict_tmp = dict()
+        not_head = ['사고유형', '사고분류', '사고위치', '피해상황']
+        case_head = [x.text for x in case_tab.find_elements_by_class_name('td-head') if x.text not in not_head]
+        case_val = [x.text for x in case_tab.find_elements_by_class_name('t-left')]
         
-        # 사고명
-        name = tab[0].find_element_by_class_name('td-head').text
-        name_val = tab[0].find_element_by_class_name('t-left').text
-        dict_tmp[name] = name_val
-
-        # 발생일시
-        date = tab[1].find_elements_by_class_name('td-head')[0].text
-        date_val = tab[1].find_elements_by_class_name('t-left')[0].text
-        dict_tmp[date] = date_val
-
-        # 기상상태
-        weather_tmp = tab[2].find_elements_by_class_name('t-left')[-1].text.split(' ')
-        weather = weather_tmp[0]; weather_val = weather_tmp[2]
-        temp = weather_tmp[3]; temp_val = weather_tmp[5]
-        wet = weather_tmp[6]; wet_val = weather_tmp[-1]
-        dict_tmp[weather] = weather_val
-        dict_tmp[temp] = temp_val
-        dict_tmp[wet] = wet_val
+        case_tmp = {case_head[i]: case_val[i] for i in range(len(case_head))}
         
-        # 사고유형
-        accid_type1 = tab[4].find_elements_by_class_name('td-head')[1].text
-        accid_type_val1 = re.sub('\(.*?\)', '', tab[4].find_element_by_class_name('t-left').text)
-        dict_tmp[accid_type1] = accid_type_val1
-
-        accid_type2 = tab[5].find_element_by_class_name('td-head').text
-        accid_type_val2 = tab[5].find_element_by_class_name('t-left').text
-        dict_tmp[accid_type2] = accid_type_val2
-
-        try: 
-            # 공종
-            gz_val = tab[6].find_element_by_class_name('t-left').text.split(' > ')
-            dict_tmp['공종1'] = gz_val[0]
-            dict_tmp['공종2'] = gz_val[1]
-        except IndexError:
-            dict_tmp['공종1'] = np.nan
-            dict_tmp['공종2'] = np.nan
-
-        # 작업프로세스
-        process = tab[8].find_element_by_class_name('td-head').text
-        process_val = tab[8].find_element_by_class_name('t-left').text
-        dict_tmp[process] = process_val
-
-        # 사고경위
-        detail = tab[11].find_element_by_class_name('td-head').text
-        detail_val = tab[11].find_element_by_class_name('t-left').text
-        dict_tmp[detail] = detail_val
-
-        # 사고원인
-        cause = tab[12].find_element_by_class_name('td-head').text
-        cause_val = tab[12].find_element_by_class_name('t-left').text
-        dict_tmp[cause] = cause_val
-
-        # 구체적 사고원인
-        specific_cause = tab[13].find_element_by_class_name('td-head').text
-        specific_cause_val = tab[13].find_element_by_class_name('t-left').text
-        dict_tmp[specific_cause] = specific_cause_val
+        # -------------------------------- 현장특성 -------------------------------- #
+        char_tab = tab[1]
         
-        accid_dict.append(dict_tmp)
+        char_head = [x.text for x in char_tab.find_elements_by_class_name('td-head')]
+        char_val = [x.text for x in char_tab.find_elements_by_class_name('t-left')]
+        
+        char_tmp = {char_head[i]: char_val[i] for i in range(len(char_head))}
+        case_tmp.update(char_tmp)
+        
+        accid_dict.append(case_tmp)
         
         driver.back()
         
@@ -144,4 +103,8 @@ print('\ntime: ', time.time() - start)
 #%%
 accident = pd.DataFrame(accid_dict)
 accident = accident.sort_values('발생일시', ascending = False).reset_index(drop = True)
+
+
 accident.to_csv('accident.csv', header = True, index = False, encoding = 'utf-8-sig')
+
+accident.head(2)

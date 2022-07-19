@@ -125,7 +125,7 @@ def mmr(doc_embedding, candidate_embeddings, words, top_n, diversity):
         # keywords & candidates를 업데이트
         keywords_idx.append(mmr_idx)
 
-    return [words[idx] for idx in keywords_idx]
+    return [words[idx] for idx in keywords_idx], [word_doc_similarity[idx][0] for idx in keywords_idx]
 
 
 def josa_delete(string):
